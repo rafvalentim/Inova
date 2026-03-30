@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== ENUMS =====
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum SprintStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TimeEntrySource {
+  MANUAL
+  CLOCKIFY
+}
+
+enum ProjectInfoCategory {
+  CONTACT
+  LINK_STAGING
+  LINK_PRODUCTION
+  LINK_DATABASE
+  CREDENTIAL
+  OTHER
+}
+
+// ===== MODELS =====
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions Json     @default("{}")
+  isSystem    Boolean  @default(false) @map("is_system")
+  users       User[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  id              String     @id @default(uuid())
+  name            String
+  email           String     @unique
+  password        String
+  avatarUrl       String?    @map("avatar_url")
+  status          UserStatus @default(ACTIVE)
+  firstLogin      Boolean    @default(true) @map("first_login")
+  clockifyId      String?    @map("clockify_id")
+  failedAttempts  Int        @default(0) @map("failed_attempts")
+  lockedUntil     DateTime?  @map("locked_until")
+  roleId          String     @map("role_id")
+  role            Role       @relation(fields: [roleId], references: [id])
+
+  projectMembers     ProjectMember[]
+  createdProjects    Project[]       @relation("ProjectCreator")
+  taskAssignees      TaskAssignee[]
+  comments           Comment[]
+  attachments        Attachment[]    @relation("AttachmentUploader")
+  timeEntries        TimeEntry[]
+  auditLogs          AuditLog[]
+  refreshTokens      RefreshToken[]
+  createdProjectInfo ProjectInfo[]   @relation("ProjectInfoCreator")
+
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("password_reset_tokens")
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  code        String        @unique
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  startDate   DateTime?     @map("start_date")
+  targetDate  DateTime?     @map("target_date")
+  createdById String        @map("created_by_id")
+  createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
+
+  members     ProjectMember[]
+  sprints     Sprint[]
+  tasks       Task[]
+  projectInfo ProjectInfo[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id            String   @id @default(uuid())
+  projectId     String   @map("project_id")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id])
+  roleInProject String   @default("Membro") @map("role_in_project")
+  joinedAt      DateTime @default(now()) @map("joined_at")
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model ProjectInfo {
+  id          String              @id @default(uuid())
+  projectId   String              @map("project_id")
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category    ProjectInfoCategory @default(OTHER)
+  label       String
+  value       String
+  username    String?
+  isSensitive Boolean             @default(false) @map("is_sensitive")
+  notes       String?
+  order       Int                 @default(0)
+  createdById String              @map("created_by_id")
+  createdBy   User                @relation("ProjectInfoCreator", fields: [createdById], references: [id])
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("project_info")
+}
+
+model Sprint {
+  id          String       @id @default(uuid())
+  projectId   String       @map("project_id")
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  goal        String?
+  startDate   DateTime     @map("start_date")
+  endDate     DateTime     @map("end_date")
+  status      SprintStatus @default(PLANNING)
+  capacityPts Int?         @map("capacity_pts")
+  tasks       SprintTask[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("sprints")
+}
+
+model SprintTask {
+  id        String   @id @default(uuid())
+  sprintId  String   @map("sprint_id")
+  sprint    Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  @@unique([sprintId, taskId])
+  @@map("sprint_tasks")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  code        String     @unique  // TASK-001 — identificador legível por humanos
+  projectId   String     @map("project_id")
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprints     SprintTask[]
+  parentId    String?    @map("parent_id")
+  parent      Task?      @relation("TaskSubtasks", fields: [parentId], references: [id])
+  subtasks    Task[]     @relation("TaskSubtasks")
+  title       String
+  description String?
+  status      TaskStatus @default(BACKLOG)
+  priority    Priority   @default(MEDIUM)
+  storyPoints Int?       @map("story_points")
+  dueDate     DateTime?  @map("due_date")
+  position    Int        @default(0)
+  tags        String[]   @default([])
+  createdById String     @map("created_by_id")
+
+  assignees   TaskAssignee[]
+  comments    Comment[]
+  attachments Attachment[]
+  timeEntries TimeEntry[]
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([code])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id         String   @id @default(uuid())
+  taskId     String   @map("task_id")
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  @@unique([taskId, userId])
+  @@map("task_assignees")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("comments")
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  taskId     String   @map("task_id")
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  filename   String
+  filepath   String
+  sizeBytes  Int      @map("size_bytes")
+  mimeType   String   @map("mime_type")
+  uploadedById String @map("uploaded_by_id")
+  uploadedBy User     @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("attachments")
+}
+
+model TimeEntry {
+  id          String          @id @default(uuid())
+  taskId      String          @map("task_id")
+  task        Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId      String          @map("user_id")
+  user        User            @relation(fields: [userId], references: [id])
+  durationMin Int             @map("duration_min")
+  description String?
+  source      TimeEntrySource @default(MANUAL)
+  clockifyId  String?         @unique @map("clockify_id")
+  date        DateTime
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@map("time_entries")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  resource   String
+  resourceId String?  @map("resource_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model ClockifyConfig {
+  id          String   @id @default(uuid())
+  apiKey      String   @map("api_key")
+  workspaceId String   @map("workspace_id")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  syncStatus  String?   @map("sync_status")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("clockify_config")
+}
