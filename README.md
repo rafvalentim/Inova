@@ -21,11 +21,19 @@ Plataforma interna de gestão de projetos e times de desenvolvimento, projetada 
 ```
 Inova/
 ├── apps/
-│   ├── api/          # Backend (Express + Prisma)
-│   └── web/          # Frontend (React + Vite)
+│   ├── api/              # Backend (Express + Prisma)
+│   └── web/              # Frontend (React + Vite)
+├── assets/
+│   └── brand/            # Logomarcas do projeto
+├── docs/                 # Documentação (PRD, specs, etc.)
+├── infra/                # Docker, Nginx e configs de deploy
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── nginx.conf
 ├── packages/
-│   └── shared/       # Tipos e utilitários compartilhados
-├── docker-compose.yml
+│   └── shared/           # Tipos e utilitários compartilhados
+├── .editorconfig
+├── .gitignore
 └── package.json
 ```
 
@@ -62,7 +70,7 @@ CORS_ORIGIN=http://localhost:5173
 ### 3. Suba o banco de dados
 
 ```bash
-docker compose up db -d
+docker compose -f infra/docker-compose.yml up db -d
 ```
 
 ### 4. Execute as migrations e o seed
@@ -88,12 +96,12 @@ npm run dev
 Para rodar toda a stack em produção:
 
 ```bash
-docker compose up -d
+docker compose -f infra/docker-compose.yml up -d
 ```
 
 A aplicação ficará disponível em `http://localhost` (porta 80 via Nginx).
 
-Variáveis de ambiente configuráveis no `docker-compose.yml`:
+Variáveis de ambiente configuráveis no `infra/docker-compose.yml`:
 
 | Variável | Padrão | Descrição |
 |---|---|---|
