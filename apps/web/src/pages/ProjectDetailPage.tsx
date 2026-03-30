@@ -269,10 +269,9 @@ export default function ProjectDetailPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Space>
-                    <Tag color="purple" style={{ fontSize: 14, padding: '4px 12px' }}>{project.code}</Tag>
-                    <h2 style={{ margin: 0, color: 'var(--text-main)' }}>{project.name}</h2>
+                    <Tag color="purple" style={{ fontSize: 13, padding: '2px 10px' }}>{project.code}</Tag>
                     <Tag color={statusColors[project.status]}>{statusLabels[project.status]}</Tag>
                 </Space>
                 <Button type="primary" icon={<AppstoreOutlined />} onClick={() => navigate(`/projects/${projectId}/board`)}>
@@ -291,6 +290,7 @@ export default function ProjectDetailPage() {
                                     <Descriptions.Item label="Status"><Tag color={statusColors[project.status]}>{statusLabels[project.status]}</Tag></Descriptions.Item>
                                     <Descriptions.Item label="Data Início">{project.startDate ? dayjs(project.startDate).format('DD/MM/YYYY') : '—'}</Descriptions.Item>
                                     <Descriptions.Item label="Previsão Término">{project.targetDate ? dayjs(project.targetDate).format('DD/MM/YYYY') : '—'}</Descriptions.Item>
+                                    <Descriptions.Item label="Horas Estimadas">{project.totalEstimatedHours ? `${project.totalEstimatedHours}h` : '—'}</Descriptions.Item>
                                     <Descriptions.Item label="Criado por">{project.createdBy?.name}</Descriptions.Item>
                                     <Descriptions.Item label="Criado em">{dayjs(project.createdAt).format('DD/MM/YYYY HH:mm')}</Descriptions.Item>
                                 </Descriptions>

@@ -131,9 +131,10 @@ model Project {
   code        String        @unique
   name        String
   description String?
-  status      ProjectStatus @default(PLANNING)
-  startDate   DateTime?     @map("start_date")
-  targetDate  DateTime?     @map("target_date")
+  status               ProjectStatus @default(PLANNING)
+  totalEstimatedHours  Float?        @map("total_estimated_hours")
+  startDate            DateTime?     @map("start_date")
+  targetDate           DateTime?     @map("target_date")
   createdById String        @map("created_by_id")
   createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
 
@@ -224,8 +225,9 @@ model Task {
   description String?
   status      TaskStatus @default(BACKLOG)
   priority    Priority   @default(MEDIUM)
-  storyPoints Int?       @map("story_points")
-  dueDate     DateTime?  @map("due_date")
+  storyPoints     Int?     @map("story_points")
+  estimatedHours  Float?   @map("estimated_hours")
+  dueDate         DateTime? @map("due_date")
   position    Int        @default(0)
   tags        String[]   @default([])
   createdById String     @map("created_by_id")

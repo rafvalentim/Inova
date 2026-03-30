@@ -107,8 +107,7 @@ export default function UsersPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header">
-                <h2>Usuários</h2>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Novo Usuário</Button>
             </div>
 

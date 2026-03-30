@@ -228,7 +228,7 @@ async function generateTaskCode(): Promise<string> {
 // POST /api/projects/:projectId/tasks
 router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'create'), async (req: AuthRequest, res) => {
     try {
-        const { title, description, priority, sprintId, parentId, dueDate, storyPoints, tags, assigneeIds } = req.body;
+        const { title, description, priority, sprintId, parentId, dueDate, storyPoints, estimatedHours, tags, assigneeIds } = req.body;
 
         if (!title) {
             return res.status(400).json({ success: false, message: 'Título é obrigatório' });
@@ -259,6 +259,7 @@ router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'crea
                 parentId: parentId || null,
                 dueDate: dueDate ? new Date(dueDate) : null,
                 storyPoints: storyPoints != null && storyPoints !== '' ? parseInt(storyPoints as string, 10) : null,
+                estimatedHours: estimatedHours != null && estimatedHours !== '' ? parseFloat(estimatedHours as string) : null,
                 tags: tags || [],
                 position,
                 createdById: req.userId!,
@@ -291,7 +292,7 @@ router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'crea
 // PUT /api/tasks/:id
 router.put('/:id', authenticate, async (req: AuthRequest, res) => {
     try {
-        const { title, description, priority, status, sprintId, dueDate, storyPoints, tags, assigneeIds } = req.body;
+        const { title, description, priority, status, sprintId, dueDate, storyPoints, estimatedHours, tags, assigneeIds } = req.body;
 
         const existing = await prisma.task.findUnique({
             where: { id: req.params.id },
@@ -317,6 +318,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
         if (status && validStatuses.includes(status)) data.status = status;
         if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
         if (storyPoints !== undefined) data.storyPoints = storyPoints != null && storyPoints !== '' ? parseInt(storyPoints as string, 10) : null;
+        if (estimatedHours !== undefined) data.estimatedHours = estimatedHours != null && estimatedHours !== '' ? parseFloat(estimatedHours as string) : null;
         if (tags) data.tags = tags;
 
         const task = await prisma.task.update({

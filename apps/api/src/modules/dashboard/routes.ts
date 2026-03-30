@@ -27,19 +27,17 @@ router.get('/summary', authenticate, async (req: AuthRequest, res) => {
 
         const projectWhere = req.query.projectId ? { id: req.query.projectId as string } : {};
 
-        const timeEntryFilter: any = {};
-        if (req.query.projectId) timeEntryFilter.task = { projectId: req.query.projectId as string };
-        if (req.query.userId) timeEntryFilter.userId = req.query.userId as string;
+        // Filtro de tasks DONE no período para somar horas estimadas concluídas
+        const doneTaskFilter: any = { ...filters, status: 'DONE' };
         if (req.query.startDate || req.query.endDate) {
-            timeEntryFilter.date = {};
-            if (req.query.startDate) timeEntryFilter.date.gte = new Date(req.query.startDate as string);
-            if (req.query.endDate) timeEntryFilter.date.lte = new Date(req.query.endDate as string);
+            doneTaskFilter.updatedAt = {};
+            if (req.query.startDate) doneTaskFilter.updatedAt.gte = new Date(req.query.startDate as string);
+            if (req.query.endDate) doneTaskFilter.updatedAt.lte = new Date(req.query.endDate as string);
         } else {
-            timeEntryFilter.date = { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
+            doneTaskFilter.updatedAt = { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
         }
 
-        const [activeProjects, tasksInProgress, overdueTasks, timeEntriesPeriod] = await Promise.all([
-            // Conta projetos IN_PROGRESS; se filtro de projeto selecionado, conta qualquer status
+        const [activeProjects, tasksInProgress, overdueTasks, doneTasksHours] = await Promise.all([
             req.query.projectId
                 ? prisma.project.count({ where: { id: req.query.projectId as string, status: 'IN_PROGRESS' } })
                 : prisma.project.count({ where: { status: 'IN_PROGRESS' } }),
@@ -51,13 +49,13 @@ router.get('/summary', authenticate, async (req: AuthRequest, res) => {
                     dueDate: { lt: new Date() },
                 },
             }),
-            prisma.timeEntry.aggregate({
-                where: timeEntryFilter,
-                _sum: { durationMin: true },
+            prisma.task.aggregate({
+                where: doneTaskFilter,
+                _sum: { estimatedHours: true },
             }),
         ]);
 
-        const hoursThisWeek = Math.round((timeEntriesPeriod._sum.durationMin || 0) / 60);
+        const hoursThisWeek = doneTasksHours._sum.estimatedHours ?? 0;
 
         res.json({
             success: true,
@@ -94,6 +92,7 @@ router.get('/projects-progress', authenticate, async (req, res) => {
                 id: true,
                 name: true,
                 code: true,
+                totalEstimatedHours: true,
                 _count: { select: { tasks: true } },
             },
         });
@@ -102,14 +101,27 @@ router.get('/projects-progress', authenticate, async (req, res) => {
 
         const progress = await Promise.all(
             projects.map(async (p) => {
-                const doneTasks = await prisma.task.count({
-                    where: { ...taskFilters, projectId: p.id, status: 'DONE' },
-                });
-                const totalTasksInFilter = await prisma.task.count({
-                    where: { ...taskFilters, projectId: p.id },
-                });
+                const [doneTasks, totalTasksInFilter, doneTasksHours, allTasksHours] = await Promise.all([
+                    prisma.task.count({ where: { ...taskFilters, projectId: p.id, status: 'DONE' } }),
+                    prisma.task.count({ where: { ...taskFilters, projectId: p.id } }),
+                    prisma.task.aggregate({
+                        where: { ...taskFilters, projectId: p.id, status: 'DONE' },
+                        _sum: { estimatedHours: true },
+                    }),
+                    prisma.task.aggregate({
+                        where: { ...taskFilters, projectId: p.id },
+                        _sum: { estimatedHours: true },
+                    }),
+                ]);
 
                 const denominator = totalTasksInFilter > 0 ? totalTasksInFilter : p._count.tasks;
+                const completedHours = doneTasksHours._sum.estimatedHours ?? 0;
+                const totalHoursFromTasks = allTasksHours._sum.estimatedHours ?? 0;
+
+                // Progresso por horas: usa totalEstimatedHours do projeto se definido,
+                // caso contrário usa soma das estimativas das tasks
+                const hoursBase = p.totalEstimatedHours ?? totalHoursFromTasks;
+                const hoursPercentage = hoursBase > 0 ? Math.min(100, Math.round((completedHours / hoursBase) * 100)) : 0;
 
                 return {
                     id: p.id,
@@ -118,6 +130,9 @@ router.get('/projects-progress', authenticate, async (req, res) => {
                     totalTasks: denominator,
                     doneTasks,
                     percentage: denominator > 0 ? Math.round((doneTasks / denominator) * 100) : 0,
+                    totalEstimatedHours: p.totalEstimatedHours,
+                    completedHours,
+                    hoursPercentage,
                 };
             })
         );

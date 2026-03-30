@@ -37,6 +37,7 @@ function KanbanCard({ task, onClick }: { task: any; onClick: () => void }) {
                 <Tag color={PRIORITY_COLORS[task.priority]} style={{ fontSize: 11, margin: 0 }}>{PRIORITY_LABELS[task.priority]}</Tag>
                 <Space size={8}>
                     {task.storyPoints && <Tooltip title="Story Points"><Badge count={task.storyPoints} style={{ background: '#6366f1' }} /></Tooltip>}
+                    {task.estimatedHours && <Tooltip title="Horas estimadas"><span style={{ fontSize: 11, color: 'var(--text-muted)' }}>⏱ {task.estimatedHours}h</span></Tooltip>}
                     {task._count?.comments > 0 && <Tooltip title="Comentários"><span style={{ fontSize: 12 }}><CommentOutlined /> {task._count.comments}</span></Tooltip>}
                     {task._count?.attachments > 0 && <Tooltip title="Anexos"><span style={{ fontSize: 12 }}><PaperClipOutlined /> {task._count.attachments}</span></Tooltip>}
                 </Space>
@@ -82,6 +83,9 @@ function TaskFormFields({ projectUsers, sprints, showSprintField }: { projectUse
                 </Form.Item>
                 <Form.Item name="storyPoints" label="Story Points" style={{ flex: 1 }}>
                     <InputNumber style={{ width: '100%' }} min={0} />
+                </Form.Item>
+                <Form.Item name="estimatedHours" label="Horas Estimadas" style={{ flex: 1 }}>
+                    <InputNumber style={{ width: '100%' }} min={0} step={0.5} precision={1} placeholder="Ex: 8" />
                 </Form.Item>
             </Space>
             {showSprintField && (
@@ -218,6 +222,7 @@ export default function KanbanPage() {
             description: taskDetail.description,
             priority: taskDetail.priority,
             storyPoints: taskDetail.storyPoints,
+            estimatedHours: taskDetail.estimatedHours,
             status: taskDetail.status,
             sprintId: taskDetail.sprints?.[0]?.sprint?.id ?? null,
             assigneeIds: taskDetail.assignees?.map((a: any) => a.user.id) ?? [],
@@ -264,18 +269,17 @@ export default function KanbanPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header">
-                <h2>Quadro Kanban</h2>
-                <Space>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
                     {sprintId && sprints && (
-                        <Tag color="blue" style={{ fontSize: 13, padding: '4px 12px' }}>
+                        <Tag color="blue" style={{ fontSize: 13, padding: '2px 10px' }}>
                             {sprints.find((s: any) => s.id === sprintId)?.name}
                         </Tag>
                     )}
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { createForm.resetFields(); if (sprintId) createForm.setFieldValue('sprintId', sprintId); setCreateModalOpen(true); }}>
-                        Nova Task
-                    </Button>
-                </Space>
+                </div>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => { createForm.resetFields(); if (sprintId) createForm.setFieldValue('sprintId', sprintId); setCreateModalOpen(true); }}>
+                    Nova Task
+                </Button>
             </div>
 
             <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

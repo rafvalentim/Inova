@@ -179,6 +179,7 @@ export interface RoleListItem {
 export interface CreateProjectRequest {
     name: string;
     description?: string;
+    totalEstimatedHours?: number;
     startDate?: string;
     targetDate?: string;
     memberIds?: string[];
@@ -187,6 +188,7 @@ export interface CreateProjectRequest {
 export interface UpdateProjectRequest {
     name?: string;
     description?: string;
+    totalEstimatedHours?: number | null;
     startDate?: string;
     targetDate?: string;
     status?: ProjectStatus;
@@ -198,6 +200,7 @@ export interface ProjectListItem {
     name: string;
     description: string | null;
     status: ProjectStatus;
+    totalEstimatedHours: number | null;
     startDate: string | null;
     targetDate: string | null;
     createdAt: string;
@@ -253,6 +256,7 @@ export interface CreateTaskRequest {
     parentId?: string;
     dueDate?: string;
     storyPoints?: number;
+    estimatedHours?: number;
     tags?: string[];
     assigneeIds?: string[];
 }
@@ -264,6 +268,7 @@ export interface UpdateTaskRequest {
     sprintId?: string | null;
     dueDate?: string | null;
     storyPoints?: number | null;
+    estimatedHours?: number | null;
     tags?: string[];
     assigneeIds?: string[];
 }
@@ -274,6 +279,7 @@ export interface TaskListItem {
     status: TaskStatus;
     priority: Priority;
     storyPoints: number | null;
+    estimatedHours: number | null;
     dueDate: string | null;
     position: number;
     tags: string[];
@@ -352,6 +358,9 @@ export interface ProjectProgress {
     totalTasks: number;
     doneTasks: number;
     percentage: number;
+    totalEstimatedHours: number | null;
+    completedHours: number;
+    hoursPercentage: number;
 }
 
 export interface TaskDistribution {

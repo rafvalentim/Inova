@@ -70,13 +70,6 @@ export default function MyTasksPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header" style={{ marginBottom: 16 }}>
-                <div>
-                    <h2 style={{ margin: 0 }}>Minhas Tasks</h2>
-                    <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Olá, {user?.name}! Veja todas as suas tarefas abaixo.</span>
-                </div>
-            </div>
-
             {/* Estatísticas rápidas */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={6}>

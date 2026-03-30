@@ -129,10 +129,6 @@ export default function DashboardPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header" style={{ marginBottom: 16 }}>
-                <h2>Dashboard</h2>
-            </div>
-
             <Card style={{ marginBottom: 24, padding: 0 }} bodyStyle={{ padding: '16px 24px' }}>
                 <Space wrap align="center" size={16}>
                     <FilterOutlined style={{ color: 'var(--primary)' }} />
@@ -206,7 +202,7 @@ export default function DashboardPage() {
                     <div className="stat-card-icon" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}><CheckCircleOutlined /></div>
                     <div className="stat-card-value">{summary?.hoursThisWeek || 0}h</div>
                     <div className="stat-card-label">
-                        {filters.startDate ? 'Horas no Período' : 'Horas (últimos 7 dias)'}
+                        {filters.startDate ? 'Horas concluídas no período' : 'Horas concluídas (7 dias)'}
                     </div>
                 </div>
                 <div className="dashboard-stat-card">
@@ -264,14 +260,29 @@ export default function DashboardPage() {
 
                 <Col xs={24}>
                     <Card title="Progresso dos Projetos" bordered={false}>
-                        <div style={{ height: 300 }}>
+                        <div style={{ height: Math.max(300, (progress?.length || 1) * 60) }}>
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart layout="vertical" data={progress || []} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <BarChart layout="vertical" data={progress || []} margin={{ top: 5, right: 60, left: 20, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                                    <XAxis type="number" domain={[0, 100]} stroke="var(--text-muted)" />
-                                    <YAxis dataKey="name" type="category" stroke="var(--text-muted)" width={120} />
-                                    <Tooltip formatter={(value: number) => [`${value}%`, 'Progresso']} contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }} itemStyle={{ color: 'var(--text-main)' }} />
-                                    <Bar dataKey="percentage" fill="var(--primary)" radius={[0, 4, 4, 0]} />
+                                    <XAxis type="number" domain={[0, 100]} stroke="var(--text-muted)" tickFormatter={(v) => `${v}%`} />
+                                    <YAxis dataKey="name" type="category" stroke="var(--text-muted)" width={130} />
+                                    <Tooltip
+                                        contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8 }}
+                                        itemStyle={{ color: 'var(--text-main)' }}
+                                        formatter={(value: number, name: string, props: any) => {
+                                            const item = props.payload;
+                                            if (name === 'percentage') {
+                                                return [`${value}% (${item.doneTasks}/${item.totalTasks} tasks)`, 'Progresso por Tasks'];
+                                            }
+                                            if (name === 'hoursPercentage') {
+                                                return [`${value}% (${item.completedHours}h / ${item.totalEstimatedHours ?? '—'}h)`, 'Progresso por Horas'];
+                                            }
+                                            return [value, name];
+                                        }}
+                                    />
+                                    <Legend formatter={(value) => value === 'percentage' ? 'Por Tasks' : 'Por Horas'} />
+                                    <Bar dataKey="percentage" name="percentage" fill="var(--primary)" radius={[0, 4, 4, 0]} />
+                                    <Bar dataKey="hoursPercentage" name="hoursPercentage" fill="#22c55e" radius={[0, 4, 4, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>

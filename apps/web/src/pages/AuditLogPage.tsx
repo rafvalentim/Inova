@@ -44,8 +44,6 @@ export default function AuditLogPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header"><h2>Audit Log</h2></div>
-
             <Space style={{ marginBottom: 16 }} wrap>
                 <Select
                     placeholder="Filtrar por ação"

@@ -104,7 +104,7 @@ router.get('/:id', authenticate, async (req, res) => {
 // POST /api/projects
 router.post('/', authenticate, authorize('projects', 'create'), async (req: AuthRequest, res) => {
     try {
-        const { name, description, startDate, targetDate, memberIds } = req.body;
+        const { name, description, totalEstimatedHours, startDate, targetDate, memberIds } = req.body;
 
         if (!name) {
             return res.status(400).json({ success: false, message: 'Nome é obrigatório' });
@@ -117,6 +117,7 @@ router.post('/', authenticate, authorize('projects', 'create'), async (req: Auth
                 code,
                 name,
                 description: description || null,
+                totalEstimatedHours: totalEstimatedHours != null && totalEstimatedHours !== '' ? parseFloat(totalEstimatedHours) : null,
                 startDate: startDate ? new Date(startDate) : null,
                 targetDate: targetDate ? new Date(targetDate) : null,
                 createdById: req.userId!,
@@ -150,7 +151,7 @@ router.post('/', authenticate, authorize('projects', 'create'), async (req: Auth
 // PUT /api/projects/:id
 router.put('/:id', authenticate, authorize('projects', 'update'), async (req: AuthRequest, res) => {
     try {
-        const { name, description, startDate, targetDate } = req.body;
+        const { name, description, totalEstimatedHours, startDate, targetDate } = req.body;
 
         const existing = await prisma.project.findUnique({ where: { id: req.params.id } });
         if (!existing) {
@@ -160,6 +161,7 @@ router.put('/:id', authenticate, authorize('projects', 'update'), async (req: Au
         const data: any = {};
         if (name) data.name = name;
         if (description !== undefined) data.description = description;
+        if (totalEstimatedHours !== undefined) data.totalEstimatedHours = totalEstimatedHours != null && totalEstimatedHours !== '' ? parseFloat(totalEstimatedHours) : null;
         if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null;
         if (targetDate !== undefined) data.targetDate = targetDate ? new Date(targetDate) : null;
 

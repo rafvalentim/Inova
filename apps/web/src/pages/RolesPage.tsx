@@ -109,8 +109,7 @@ export default function RolesPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header">
-                <h2>Tipos de Usuário</h2>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Novo Tipo</Button>
             </div>
 

@@ -35,8 +35,6 @@ export default function SettingsPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header"><h2>Configurações</h2></div>
-
             <Space direction="vertical" size={24} style={{ width: '100%' }}>
                 {/* Clockify Integration */}
                 <Card title={<><SettingOutlined /> Integração Clockify</>}>

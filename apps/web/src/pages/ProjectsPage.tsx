@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Button, Modal, Form, Input, DatePicker, Tag, Space, message, Select, Row, Col, Progress, Empty, Dropdown, MenuProps } from 'antd';
+import { Card, Button, Modal, Form, Input, InputNumber, DatePicker, Tag, Space, message, Select, Row, Col, Progress, Empty, Dropdown, MenuProps } from 'antd';
 import { PlusOutlined, EyeOutlined, TeamOutlined, CalendarOutlined, EllipsisOutlined, EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -37,6 +37,7 @@ export default function ProjectsPage() {
             const payload = {
                 name: values.name,
                 description: values.description,
+                totalEstimatedHours: values.totalEstimatedHours ?? null,
                 startDate: values.dates?.[0]?.toISOString(),
                 targetDate: values.dates?.[1]?.toISOString(),
                 memberIds: values.memberIds || [],
@@ -70,6 +71,7 @@ export default function ProjectsPage() {
         form.setFieldsValue({
             name: project.name,
             description: project.description,
+            totalEstimatedHours: project.totalEstimatedHours,
             dates: project.startDate ? [dayjs(project.startDate), project.targetDate ? dayjs(project.targetDate) : undefined] : undefined,
         });
         setModalOpen(true);
@@ -91,8 +93,7 @@ export default function ProjectsPage() {
 
     return (
         <div className="fade-in">
-            <div className="page-header">
-                <h2>Projetos</h2>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEditingProject(null); setModalOpen(true); }}>
                     Novo Projeto
                 </Button>
@@ -142,6 +143,7 @@ export default function ProjectsPage() {
                                             <span><TeamOutlined /> {project._count?.members || 0}</span>
                                             <span>📋 {total} tasks</span>
                                             <span>🏃 {project._count?.sprints || 0} sprints</span>
+                                            {project.totalEstimatedHours && <span>⏱ {project.totalEstimatedHours}h estimadas</span>}
                                         </div>
                                         {project.startDate && (
                                             <div style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.8 }}>
@@ -162,6 +164,9 @@ export default function ProjectsPage() {
                 <Form form={form} layout="vertical" onFinish={(values) => saveMutation.mutate(values)}>
                     <Form.Item name="name" label="Nome do Projeto" rules={[{ required: true }]}><Input placeholder="Ex: Hefesto ERP" /></Form.Item>
                     <Form.Item name="description" label="Descrição"><Input.TextArea rows={3} /></Form.Item>
+                    <Form.Item name="totalEstimatedHours" label="Total de Horas Estimadas">
+                        <InputNumber style={{ width: '100%' }} min={0} step={1} placeholder="Ex: 320" addonAfter="h" />
+                    </Form.Item>
                     <Form.Item name="dates" label="Período">
                         <DatePicker.RangePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
                     </Form.Item>
