@@ -57,6 +57,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
                 role: {
                     id: user.role.id,
                     name: user.role.name,
+                    isSystem: user.role.isSystem,
                     permissions: user.role.permissions,
                 },
             },
@@ -68,7 +69,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
 });
 
 // GET /api/users
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, authorize('users', 'read'), async (req: AuthRequest, res) => {
     try {
         const { search, status, roleId, page = '1', pageSize = '20' } = req.query;
         const skip = (parseInt(page as string) - 1) * parseInt(pageSize as string);
@@ -121,7 +122,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // GET /api/users/:id
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, authorize('users', 'read'), async (req: AuthRequest, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.params.id },
@@ -291,8 +292,8 @@ router.put('/:id/avatar', authenticate, upload.single('avatar'), async (req: Aut
             return res.status(400).json({ success: false, message: 'Arquivo de avatar é obrigatório' });
         }
 
-        // Only self or admin can update avatar
-        if (req.params.id !== req.userId && req.userRole !== 'Administrador') {
+        // Only self or system admin can update avatar
+        if (req.params.id !== req.userId && !req.userIsSystem) {
             return res.status(403).json({ success: false, message: 'Sem permissão' });
         }
 

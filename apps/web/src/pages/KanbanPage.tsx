@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Spin, Avatar, Tooltip, Badge } from 'antd';
+import { Alert, Button, Modal, Form, Input, InputNumber, Select, DatePicker, Tag, Space, message, Spin, Avatar, Tooltip, Badge } from 'antd';
 import { PlusOutlined, CommentOutlined, PaperClipOutlined, ClockCircleOutlined, UserOutlined, EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
 import { DndContext, closestCorners, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -151,6 +151,13 @@ export default function KanbanPage() {
         queryFn: () => api.get(`/projects/${projectId}/members`).then((r) => r.data.data),
     });
 
+    const { data: project } = useQuery({
+        queryKey: ['project', projectId],
+        queryFn: () => api.get(`/projects/${projectId}`).then((r) => r.data.data),
+    });
+
+    const isCancelled = project?.status === 'CANCELLED';
+
     const { data: taskDetail, isLoading: isLoadingDetail } = useQuery({
         queryKey: ['task-detail', selectedTask?.id],
         queryFn: () => api.get(`/tasks/${selectedTask.id}`).then((r) => r.data.data),
@@ -249,6 +256,7 @@ export default function KanbanPage() {
 
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         setActiveId(null);
+        if (isCancelled) return;
         const { active, over } = event;
         if (!over) return;
         const taskId = active.id as string;
@@ -269,6 +277,15 @@ export default function KanbanPage() {
 
     return (
         <div className="fade-in">
+            {isCancelled && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    message="Projeto Cancelado — somente leitura"
+                    description="Este projeto está cancelado. Nenhuma modificação é permitida."
+                    style={{ marginBottom: 16 }}
+                />
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                     {sprintId && sprints && (
@@ -277,9 +294,11 @@ export default function KanbanPage() {
                         </Tag>
                     )}
                 </div>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => { createForm.resetFields(); if (sprintId) createForm.setFieldValue('sprintId', sprintId); setCreateModalOpen(true); }}>
-                    Nova Task
-                </Button>
+                {!isCancelled && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { createForm.resetFields(); if (sprintId) createForm.setFieldValue('sprintId', sprintId); setCreateModalOpen(true); }}>
+                        Nova Task
+                    </Button>
+                )}
             </div>
 
             <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -368,7 +387,7 @@ export default function KanbanPage() {
                 title={
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 40 }}>
                         <span style={{ fontWeight: 600 }}>{taskDetail?.title || selectedTask?.title}</span>
-                        {taskDetail && (
+                        {taskDetail && !isCancelled && (
                             <Space size={8}>
                                 {canEdit && (
                                     <Button size="small" icon={<EditOutlined />} onClick={openEditModal}>
@@ -387,96 +406,113 @@ export default function KanbanPage() {
                 open={detailModalOpen}
                 onCancel={() => { setDetailModalOpen(false); setSelectedTask(null); }}
                 footer={null}
-                width={720}
+                width="min(1100px, 96vw)"
             >
                 {isLoadingDetail ? (
                     <Spin style={{ display: 'block', margin: '40px auto' }} />
                 ) : taskDetail ? (
-                    <div>
-                        {/* Tags de status e prioridade */}
-                        <Space style={{ marginBottom: 16 }} wrap>
-                            <Tag color={PRIORITY_COLORS[taskDetail.priority]}>{PRIORITY_LABELS[taskDetail.priority]}</Tag>
-                            <Tag color="geekblue">
-                                {COLUMNS.find((c) => c.id === taskDetail.status)?.title || taskDetail.status}
-                            </Tag>
-                            {taskDetail.storyPoints != null && <Tag>{taskDetail.storyPoints} pts</Tag>}
-                            {taskDetail.dueDate && (
-                                <Tag color={new Date(taskDetail.dueDate) < new Date() ? 'red' : 'default'}>
-                                    <ClockCircleOutlined /> {dayjs(taskDetail.dueDate).format('DD/MM/YYYY')}
+                    <div style={{ display: 'flex', gap: 24, alignItems: 'stretch', minHeight: 0 }}>
+
+                        {/* ── Coluna esquerda: conteúdo scrollável ── */}
+                        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', maxHeight: 'calc(80vh - 120px)', paddingRight: 4 }}>
+                            {/* Tags de status e prioridade */}
+                            <Space style={{ marginBottom: 16 }} wrap>
+                                <Tag color={PRIORITY_COLORS[taskDetail.priority]}>{PRIORITY_LABELS[taskDetail.priority]}</Tag>
+                                <Tag color="geekblue">
+                                    {COLUMNS.find((c) => c.id === taskDetail.status)?.title || taskDetail.status}
                                 </Tag>
-                            )}
-                        </Space>
+                                {taskDetail.storyPoints != null && <Tag>{taskDetail.storyPoints} pts</Tag>}
+                                {taskDetail.estimatedHours != null && <Tag><ClockCircleOutlined /> {taskDetail.estimatedHours}h estimadas</Tag>}
+                                {taskDetail.dueDate && (
+                                    <Tag color={new Date(taskDetail.dueDate) < new Date() ? 'red' : 'default'}>
+                                        <ClockCircleOutlined /> {dayjs(taskDetail.dueDate).format('DD/MM/YYYY')}
+                                    </Tag>
+                                )}
+                            </Space>
 
-                        {/* Responsáveis */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <strong style={{ fontSize: 13 }}>Responsáveis:</strong>
-                            {taskDetail.assignees?.length > 0
-                                ? taskDetail.assignees.map((a: any) => (
-                                    <Tag key={a.user.id} icon={<UserOutlined />}>{a.user.name}</Tag>
-                                ))
-                                : <span style={{ color: '#9090b0', fontSize: 13 }}>Nenhum</span>
-                            }
-                        </div>
-
-                        {/* Descrição em Markdown */}
-                        {taskDetail.description ? (
-                            <div style={{ marginBottom: 20 }}>
-                                <strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Descrição:</strong>
-                                <div className="md-preview" style={{ background: 'var(--bg-elevated)', padding: '12px 16px', borderRadius: 8, minHeight: 60 }}>
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                        {taskDetail.description}
-                                    </ReactMarkdown>
-                                </div>
+                            {/* Responsáveis */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <strong style={{ fontSize: 13 }}>Responsáveis:</strong>
+                                {taskDetail.assignees?.length > 0
+                                    ? taskDetail.assignees.map((a: any) => (
+                                        <Tag key={a.user.id} icon={<UserOutlined />}>{a.user.name}</Tag>
+                                    ))
+                                    : <span style={{ color: '#9090b0', fontSize: 13 }}>Nenhum</span>
+                                }
                             </div>
-                        ) : (
-                            <p style={{ color: '#9090b0', fontSize: 13, marginBottom: 20 }}>Sem descrição.</p>
-                        )}
 
-                        {/* Comentários */}
-                        <h4 style={{ marginTop: 20, marginBottom: 12 }}>
-                            Comentários ({taskDetail.comments?.length || 0})
-                        </h4>
-                        <div style={{ maxHeight: 260, overflowY: 'auto', marginBottom: 12 }}>
-                            {taskDetail.comments?.map((c: any) => (
-                                <div key={c.id} style={{ background: 'var(--bg-elevated)', padding: 12, borderRadius: 8, marginBottom: 8 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                        <Space>
-                                            <Avatar size={20} icon={<UserOutlined />} style={{ background: 'var(--primary)' }} />
-                                            <strong style={{ fontSize: 13, color: 'var(--text-main)' }}>{c.user.name}</strong>
-                                        </Space>
-                                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dayjs(c.createdAt).format('DD/MM HH:mm')}</span>
+                            {/* Descrição em Markdown */}
+                            {taskDetail.description ? (
+                                <div style={{ marginBottom: 20 }}>
+                                    <strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Descrição:</strong>
+                                    <div className="md-preview" style={{ background: 'var(--bg-elevated)', padding: '12px 16px', borderRadius: 8, minHeight: 60 }}>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {taskDetail.description}
+                                        </ReactMarkdown>
                                     </div>
-                                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{c.content}</p>
                                 </div>
-                            ))}
-                            {!taskDetail.comments?.length && (
-                                <p style={{ color: '#9090b0', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>Nenhum comentário ainda.</p>
+                            ) : (
+                                <p style={{ color: '#9090b0', fontSize: 13, marginBottom: 20 }}>Sem descrição.</p>
+                            )}
+
+                            {/* Registros de Tempo */}
+                            {taskDetail.timeEntries?.length > 0 && (
+                                <>
+                                    <h4 style={{ marginTop: 8, marginBottom: 8 }}>Registros de Tempo</h4>
+                                    {taskDetail.timeEntries.map((te: any) => (
+                                        <div key={te.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, borderBottom: '1px solid var(--border)', color: 'var(--text-main)' }}>
+                                            <span>{te.user.name} — {te.description || 'Sem descrição'}</span>
+                                            <span style={{ color: 'var(--text-muted)' }}>{te.durationMin}min • {dayjs(te.date).format('DD/MM')}</span>
+                                        </div>
+                                    ))}
+                                </>
                             )}
                         </div>
-                        <Space.Compact style={{ width: '100%' }}>
-                            <Input
-                                value={commentText}
-                                onChange={(e) => setCommentText(e.target.value)}
-                                placeholder="Adicionar comentário..."
-                                onPressEnter={() => commentText && addComment.mutate(commentText)}
-                            />
-                            <Button type="primary" onClick={() => commentText && addComment.mutate(commentText)} loading={addComment.isPending}>
-                                Enviar
-                            </Button>
-                        </Space.Compact>
 
-                        {/* Registros de Tempo */}
-                        {taskDetail.timeEntries?.length > 0 && (
-                            <>
-                                <h4 style={{ marginTop: 24, marginBottom: 8 }}>Registros de Tempo</h4>
-                                {taskDetail.timeEntries.map((te: any) => (
-                                    <div key={te.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13, borderBottom: '1px solid var(--border)', color: 'var(--text-main)' }}>
-                                        <span>{te.user.name} — {te.description || 'Sem descrição'}</span>
-                                        <span style={{ color: 'var(--text-muted)' }}>{te.durationMin}min • {dayjs(te.date).format('DD/MM')}</span>
-                                    </div>
-                                ))}
-                            </>
-                        )}
+                        {/* Divisor vertical */}
+                        <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
+
+                        {/* ── Coluna direita: comentários fixos ── */}
+                        <div style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>
+                                <CommentOutlined style={{ marginRight: 6 }} />
+                                Comentários ({taskDetail.comments?.length || 0})
+                            </div>
+
+                            <div style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(80vh - 180px)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {taskDetail.comments?.length ? (
+                                    taskDetail.comments.map((c: any) => (
+                                        <div key={c.id} style={{ background: 'var(--bg-elevated)', padding: '10px 12px', borderRadius: 8, flexShrink: 0 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <Space size={6}>
+                                                    <Avatar size={18} icon={<UserOutlined />} style={{ background: 'var(--primary)' }} />
+                                                    <strong style={{ fontSize: 12, color: 'var(--text-main)' }}>{c.user.name}</strong>
+                                                </Space>
+                                                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dayjs(c.createdAt).format('DD/MM HH:mm')}</span>
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{c.content}</p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p style={{ color: '#9090b0', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Nenhum comentário ainda.</p>
+                                )}
+                            </div>
+
+                            {!isCancelled && (
+                                <Space.Compact style={{ width: '100%', flexShrink: 0 }}>
+                                    <Input
+                                        value={commentText}
+                                        onChange={(e) => setCommentText(e.target.value)}
+                                        placeholder="Adicionar comentário..."
+                                        onPressEnter={() => commentText && addComment.mutate(commentText)}
+                                    />
+                                    <Button type="primary" onClick={() => commentText && addComment.mutate(commentText)} loading={addComment.isPending}>
+                                        Enviar
+                                    </Button>
+                                </Space.Compact>
+                            )}
+                        </div>
+
                     </div>
                 ) : null}
             </Modal>

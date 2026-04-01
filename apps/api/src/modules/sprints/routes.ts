@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../../config/database';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
 import { createAuditLog } from '../../middleware/auditLog';
+import { rejectIfCancelled } from '../../utils/projectGuard';
 
 const router = Router();
 
@@ -179,6 +180,7 @@ router.post('/projects/:projectId/sprints', authenticate, authorize('sprints', '
         if (!project) {
             return res.status(404).json({ success: false, message: 'Projeto não encontrado' });
         }
+        if (await rejectIfCancelled(req.params.projectId, res)) return;
 
         const sprint = await prisma.sprint.create({
             data: {
@@ -210,6 +212,7 @@ router.put('/:id', authenticate, authorize('sprints', 'update'), async (req: Aut
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Sprint não encontrada' });
         }
+        if (await rejectIfCancelled(existing.projectId, res)) return;
 
         const data: any = {};
         if (name) data.name = name;
@@ -246,6 +249,7 @@ router.patch('/:id/status', authenticate, authorize('sprints', 'update'), async 
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Sprint não encontrada' });
         }
+        if (await rejectIfCancelled(existing.projectId, res)) return;
 
         // Apenas uma sprint ativa por projeto
         if (status === 'ACTIVE') {
@@ -285,6 +289,7 @@ router.post('/:id/carry-over', authenticate, authorize('sprints', 'update'), asy
         if (!sprint) {
             return res.status(404).json({ success: false, message: 'Sprint não encontrada' });
         }
+        if (await rejectIfCancelled(sprint.projectId, res)) return;
 
         // Tasks incompletas desta sprint
         const incompleteTasks = await prisma.sprintTask.findMany({
@@ -337,6 +342,7 @@ router.delete('/:id', authenticate, authorize('sprints', 'delete'), async (req: 
         if (!sprint) {
             return res.status(404).json({ success: false, message: 'Sprint não encontrada' });
         }
+        if (await rejectIfCancelled(sprint.projectId, res)) return;
 
         // SprintTask será deletado por CASCADE ao deletar sprint
         await prisma.sprint.delete({ where: { id: sprint.id } });

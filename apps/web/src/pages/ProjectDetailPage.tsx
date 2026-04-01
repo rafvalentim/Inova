@@ -207,6 +207,8 @@ export default function ProjectDetailPage() {
     if (isLoading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
     if (!project) return <Empty description="Projeto não encontrado" />;
 
+    const isCancelled = project.status === 'CANCELLED';
+
     const sprintColumns = [
         {
             title: 'Nome',
@@ -247,10 +249,10 @@ export default function ProjectDetailPage() {
                     <Button size="small" icon={<AppstoreOutlined />} onClick={() => navigate(`/projects/${projectId}/board?sprint=${r.id}`)}>
                         Kanban
                     </Button>
-                    {r.status === 'PLANNING' && (
+                    {!isCancelled && r.status === 'PLANNING' && (
                         <Button size="small" type="primary" ghost onClick={() => activateSprint.mutate(r.id)}>Ativar</Button>
                     )}
-                    {r.status === 'ACTIVE' && (
+                    {!isCancelled && r.status === 'ACTIVE' && (
                         <Button
                             size="small"
                             type="primary"
@@ -260,8 +262,8 @@ export default function ProjectDetailPage() {
                             Concluir
                         </Button>
                     )}
-                    <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEditSprint(r)} />
-                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => showDeleteConfirm(r.id, r.name)} />
+                    {!isCancelled && <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEditSprint(r)} />}
+                    {!isCancelled && <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => showDeleteConfirm(r.id, r.name)} />}
                 </Space>
             ),
         },
@@ -269,14 +271,26 @@ export default function ProjectDetailPage() {
 
     return (
         <div className="fade-in">
+            {isCancelled && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    message="Projeto Cancelado"
+                    description="Este projeto está cancelado. Nenhuma modificação é permitida. Reative-o na tela de Projetos para voltar a trabalhar nele."
+                    style={{ marginBottom: 16 }}
+                />
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Space>
                     <Tag color="purple" style={{ fontSize: 13, padding: '2px 10px' }}>{project.code}</Tag>
                     <Tag color={statusColors[project.status]}>{statusLabels[project.status]}</Tag>
                 </Space>
-                <Button type="primary" icon={<AppstoreOutlined />} onClick={() => navigate(`/projects/${projectId}/board`)}>
-                    Quadro Kanban
-                </Button>
+                {!isCancelled && (
+                    <Button type="primary" icon={<AppstoreOutlined />} onClick={() => navigate(`/projects/${projectId}/board`)}>
+                        Quadro Kanban
+                    </Button>
+                )}
             </div>
 
             <Tabs items={[
@@ -300,7 +314,7 @@ export default function ProjectDetailPage() {
                             <Divider orientation="left" style={{ marginTop: 24 }}>Informações úteis</Divider>
 
                             <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
-                                {canManageInfo && (
+                                {canManageInfo && !isCancelled && (
                                     <Button
                                         type="primary"
                                         icon={<PlusOutlined />}
@@ -364,7 +378,7 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                {canManageInfo && (
+                                                {canManageInfo && !isCancelled && (
                                                     <Space size={4} style={{ flexShrink: 0 }}>
                                                         <Button
                                                             type="text"
@@ -411,11 +425,13 @@ export default function ProjectDetailPage() {
                     key: 'sprints', label: `Sprints (${sprints?.length || 0})`,
                     children: (
                         <>
-                            <div style={{ marginBottom: 16 }}>
-                                <Button type="primary" icon={<PlusOutlined />} onClick={() => { sprintForm.resetFields(); setEditingSprint(null); setSprintModal(true); }}>
-                                    Nova Sprint
-                                </Button>
-                            </div>
+                            {!isCancelled && (
+                                <div style={{ marginBottom: 16 }}>
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { sprintForm.resetFields(); setEditingSprint(null); setSprintModal(true); }}>
+                                        Nova Sprint
+                                    </Button>
+                                </div>
+                            )}
                             <Table columns={sprintColumns} dataSource={sprints || []} rowKey="id" pagination={false} size="small" />
                         </>
                     ),
@@ -424,11 +440,13 @@ export default function ProjectDetailPage() {
                     key: 'members', label: `Membros (${project.members?.length || 0})`,
                     children: (
                         <>
-                            <div style={{ marginBottom: 16 }}>
-                                <Button type="primary" icon={<TeamOutlined />} onClick={() => { memberForm.resetFields(); setMemberModal(true); }}>
-                                    Adicionar Membro
-                                </Button>
-                            </div>
+                            {!isCancelled && (
+                                <div style={{ marginBottom: 16 }}>
+                                    <Button type="primary" icon={<TeamOutlined />} onClick={() => { memberForm.resetFields(); setMemberModal(true); }}>
+                                        Adicionar Membro
+                                    </Button>
+                                </div>
+                            )}
                             <Table
                                 dataSource={project.members || []}
                                 rowKey="id"

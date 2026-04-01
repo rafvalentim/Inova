@@ -6,6 +6,7 @@ import prisma from '../config/database';
 export interface AuthRequest extends Request {
     userId?: string;
     userRole?: string;
+    userIsSystem?: boolean;
     userPermissions?: Record<string, string[]>;
 }
 
@@ -38,6 +39,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
         req.userId = user.id;
         req.userRole = user.role.name;
+        req.userIsSystem = user.role.isSystem;
         req.userPermissions = user.role.permissions as Record<string, string[]>;
         next();
     } catch (error) {
@@ -52,8 +54,8 @@ export const authorize = (resource: string, action: string) => {
             return res.status(403).json({ success: false, message: 'Permissões não encontradas' });
         }
 
-        // Administrador tem acesso total
-        if (req.userRole === 'Administrador') {
+        // Roles com isSystem=true e sem restrições de permissão têm acesso total (admin bypass)
+        if (req.userIsSystem && req.userRole === 'Administrador') {
             return next();
         }
 

@@ -9,7 +9,7 @@ const statusColors: Record<string, string> = { ACTIVE: 'green', INACTIVE: 'defau
 const statusLabels: Record<string, string> = { ACTIVE: 'Ativo', INACTIVE: 'Inativo', BLOCKED: 'Bloqueado' };
 
 export default function UsersPage() {
-    const { user: currentUser } = useAuthStore();
+    const { user: currentUser, hasPermission } = useAuthStore();
     const [modalOpen, setModalOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [filterRole, setFilterRole] = useState<string | undefined>();
@@ -81,17 +81,21 @@ export default function UsersPage() {
             title: 'Ações', key: 'actions', width: 150,
             render: (_: any, record: any) => (
                 <Space>
-                    <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
-                    {record.status === 'ACTIVE' ? (
-                        <Popconfirm
-                            title="Desativar usuário?"
-                            disabled={record.id === currentUser?.id}
-                            onConfirm={() => statusMutation.mutate({ id: record.id, status: 'INACTIVE' })}
-                        >
-                            <Button size="small" icon={<StopOutlined />} danger disabled={record.id === currentUser?.id} />
-                        </Popconfirm>
-                    ) : (
-                        <Button size="small" icon={<CheckCircleOutlined />} onClick={() => statusMutation.mutate({ id: record.id, status: 'ACTIVE' })} />
+                    {hasPermission('users', 'update') && (
+                        <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+                    )}
+                    {hasPermission('users', 'update') && (
+                        record.status === 'ACTIVE' ? (
+                            <Popconfirm
+                                title="Desativar usuário?"
+                                disabled={record.id === currentUser?.id}
+                                onConfirm={() => statusMutation.mutate({ id: record.id, status: 'INACTIVE' })}
+                            >
+                                <Button size="small" icon={<StopOutlined />} danger disabled={record.id === currentUser?.id} />
+                            </Popconfirm>
+                        ) : (
+                            <Button size="small" icon={<CheckCircleOutlined />} onClick={() => statusMutation.mutate({ id: record.id, status: 'ACTIVE' })} />
+                        )
                     )}
                 </Space>
             ),
@@ -108,7 +112,9 @@ export default function UsersPage() {
     return (
         <div className="fade-in">
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Novo Usuário</Button>
+                {hasPermission('users', 'create') && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Novo Usuário</Button>
+                )}
             </div>
 
             <Space style={{ marginBottom: 16, flexWrap: 'wrap' }}>

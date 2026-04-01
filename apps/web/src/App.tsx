@@ -60,7 +60,15 @@ function HomeRedirect() {
 function PrivateRoute({ children }: { children: React.ReactNode }) {
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
     const user = useAuthStore((s) => s.user);
+    const refreshUserProfile = useAuthStore((s) => s.refreshUserProfile);
     const hydrated = useStoreHydrated();
+
+    useEffect(() => {
+        if (isAuthenticated && hydrated) {
+            refreshUserProfile();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAuthenticated, hydrated]);
 
     if (!hydrated) return null;
 
@@ -91,7 +99,7 @@ function App() {
                 }
             >
                 <Route index element={<HomeRedirect />} />
-                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="dashboard" element={<AuthorizedRoute resource="dashboard"><DashboardPage /></AuthorizedRoute>} />
                 <Route path="users" element={<AuthorizedRoute resource="users"><UsersPage /></AuthorizedRoute>} />
                 <Route path="roles" element={<AuthorizedRoute resource="roles"><RolesPage /></AuthorizedRoute>} />
                 <Route path="projects" element={<AuthorizedRoute resource="projects"><ProjectsPage /></AuthorizedRoute>} />

@@ -73,6 +73,24 @@ body {
   transition: background-color 0.3s, color 0.3s;
 }
 
+/* ── Autofill do navegador: remove o fundo azul/amarelo injetado pelo Chrome/Edge ── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-elevated) inset !important;
+  box-shadow: 0 0 0 1000px var(--bg-elevated) inset !important;
+  -webkit-text-fill-color: var(--text-main) !important;
+  caret-color: var(--text-main);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -289,8 +307,8 @@ body {
 }
 
 .kanban-column {
-  min-width: 280px;
-  width: 280px;
+  flex: 1;
+  min-width: 220px;
   background: var(--kanban-col-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -383,16 +401,19 @@ body {
 /* ===== DASHBOARD ===== */
 .dashboard-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .dashboard-stat-card {
   background: var(--stat-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   transition: all 0.3s;
 }
 
@@ -403,27 +424,28 @@ body {
 }
 
 .stat-card-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .stat-card-value {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text-main);
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .stat-card-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* ===== PRIORITY BADGES ===== */

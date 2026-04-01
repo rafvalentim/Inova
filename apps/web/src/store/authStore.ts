@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { UserProfile, Permissions } from '@inova/shared';
+import api from '../services/api';
 
 interface AuthState {
     user: UserProfile | null;
@@ -9,6 +10,7 @@ interface AuthState {
     login: (user: UserProfile) => void;
     logout: () => void;
     hasPermission: (resource: string, action: string) => boolean;
+    refreshUserProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -31,12 +33,24 @@ export const useAuthStore = create<AuthState>()(
                     isAuthenticated: false,
                 }),
 
+            refreshUserProfile: async () => {
+                try {
+                    const res = await api.get('/users/me');
+                    const userData = res.data.data;
+                    set((state) => ({
+                        user: state.user ? { ...state.user, ...userData } : userData,
+                    }));
+                } catch {
+                    // Silently ignore — profile refresh is best-effort
+                }
+            },
+
             hasPermission: (resource: string, action: string): boolean => {
                 const { user } = get();
                 if (!user) return false;
 
-                // Admin has all permissions
-                if (user.role.name === 'Administrador') return true;
+                // System admin role has all permissions
+                if (user.role.isSystem && user.role.name === 'Administrador') return true;
 
                 const permissions = user.role.permissions as Permissions;
                 const resourcePerms = permissions[resource as keyof Permissions];

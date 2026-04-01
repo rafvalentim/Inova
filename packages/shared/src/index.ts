@@ -108,6 +108,7 @@ export interface UserProfile {
     role: {
         id: string;
         name: string;
+        isSystem: boolean;
         permissions: Permissions;
     };
 }

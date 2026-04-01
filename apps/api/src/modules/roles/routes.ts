@@ -6,7 +6,7 @@ import { createAuditLog } from '../../middleware/auditLog';
 const router = Router();
 
 // GET /api/roles
-router.get('/', authenticate, async (_req, res) => {
+router.get('/', authenticate, authorize('roles', 'read'), async (_req, res) => {
     try {
         const roles = await prisma.role.findMany({
             include: { _count: { select: { users: true } } },
@@ -21,7 +21,7 @@ router.get('/', authenticate, async (_req, res) => {
 });
 
 // GET /api/roles/:id
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', authenticate, authorize('roles', 'read'), async (req, res) => {
     try {
         const role = await prisma.role.findUnique({
             where: { id: req.params.id },

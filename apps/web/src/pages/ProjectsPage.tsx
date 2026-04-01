@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, Button, Modal, Form, Input, InputNumber, DatePicker, Tag, Space, message, Select, Row, Col, Progress, Empty, Dropdown, MenuProps } from 'antd';
-import { PlusOutlined, EyeOutlined, TeamOutlined, CalendarOutlined, EllipsisOutlined, EditOutlined, DeleteOutlined, ExclamationCircleFilled } from '@ant-design/icons';
+import { Card, Button, Modal, Form, Input, InputNumber, DatePicker, Tag, Space, message, Select, Row, Col, Empty, Dropdown, MenuProps } from 'antd';
+import { PlusOutlined, TeamOutlined, CalendarOutlined, EllipsisOutlined, EditOutlined, DeleteOutlined, ExclamationCircleFilled, RollbackOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import api from '../services/api';
@@ -18,13 +18,15 @@ const statusLabels: Record<string, string> = {
 export default function ProjectsPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<any>(null);
+    const [filterSearch, setFilterSearch] = useState('');
+    const [filterStatus, setFilterStatus] = useState<string | undefined>();
     const [form] = Form.useForm();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
     const { data, isLoading } = useQuery({
-        queryKey: ['projects'],
-        queryFn: () => api.get('/projects?pageSize=100').then((r) => r.data.data),
+        queryKey: ['projects', 'includeCancelled'],
+        queryFn: () => api.get('/projects?pageSize=100&includeCancelled=true').then((r) => r.data.data),
     });
 
     const { data: users } = useQuery({
@@ -48,7 +50,7 @@ export default function ProjectsPage() {
             return api.post('/projects', payload);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            queryClient.invalidateQueries({ queryKey: ['projects', 'includeCancelled'] });
             message.success(editingProject ? 'Projeto atualizado!' : 'Projeto criado!');
             setModalOpen(false);
             setEditingProject(null);
@@ -60,8 +62,17 @@ export default function ProjectsPage() {
     const deleteMutation = useMutation({
         mutationFn: (id: string) => api.delete(`/projects/${id}`),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['projects'] });
-            message.success('Projeto excluído!');
+            queryClient.invalidateQueries({ queryKey: ['projects', 'includeCancelled'] });
+            message.success('Projeto cancelado!');
+        },
+        onError: (e: any) => message.error(e.response?.data?.message || 'Erro'),
+    });
+
+    const reactivateMutation = useMutation({
+        mutationFn: (id: string) => api.patch(`/projects/${id}/status`, { status: 'IN_PROGRESS' }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['projects', 'includeCancelled'] });
+            message.success('Projeto reativado!');
         },
         onError: (e: any) => message.error(e.response?.data?.message || 'Erro'),
     });
@@ -79,21 +90,49 @@ export default function ProjectsPage() {
 
     const showDeleteConfirm = (id: string, name: string) => {
         confirm({
-            title: `Tem certeza que deseja excluir o projeto ${name}?`,
+            title: `Cancelar o projeto "${name}"?`,
             icon: <ExclamationCircleFilled />,
-            content: 'Isso removerá todas as tasks, sprints e anexos relacionados.',
-            okText: 'Sim, Excluir',
+            content: 'O projeto será marcado como cancelado e ficará oculto das demais telas. Você poderá reativá-lo aqui quando quiser.',
+            okText: 'Sim, Cancelar',
             okType: 'danger',
-            cancelText: 'Cancelar',
+            cancelText: 'Voltar',
             onOk() {
                 deleteMutation.mutate(id);
             },
         });
     };
 
+    const filteredItems = (data?.items || []).filter((p: any) => {
+        const s = filterSearch.toLowerCase();
+        const matchSearch = !s || p.name.toLowerCase().includes(s) || p.code.toLowerCase().includes(s);
+        const matchStatus = !filterStatus || p.status === filterStatus;
+        return matchSearch && matchStatus;
+    });
+
     return (
         <div className="fade-in">
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <Space wrap>
+                    <Input
+                        prefix={<SearchOutlined />}
+                        placeholder="Buscar por nome ou código..."
+                        value={filterSearch}
+                        onChange={e => setFilterSearch(e.target.value)}
+                        style={{ width: 260 }}
+                        allowClear
+                    />
+                    <Select
+                        placeholder="Status"
+                        allowClear
+                        style={{ width: 160 }}
+                        value={filterStatus}
+                        onChange={setFilterStatus}
+                    >
+                        {Object.entries(statusLabels).map(([k, v]) => (
+                            <Select.Option key={k} value={k}>{v}</Select.Option>
+                        ))}
+                    </Select>
+                </Space>
                 <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEditingProject(null); setModalOpen(true); }}>
                     Novo Projeto
                 </Button>
@@ -101,20 +140,23 @@ export default function ProjectsPage() {
 
             {isLoading ? (
                 <div style={{ textAlign: 'center', padding: 60 }}>Carregando...</div>
-            ) : data?.items?.length ? (
+            ) : filteredItems.length ? (
                 <Row gutter={[16, 16]}>
-                    {data.items.map((project: any) => {
+                    {filteredItems.map((project: any) => {
                         const total = project._count?.tasks || 0;
-                        const items: MenuProps['items'] = [
-                            { key: 'edit', icon: <EditOutlined />, label: 'Editar' },
-                            { key: 'delete', icon: <DeleteOutlined />, label: 'Excluir', danger: true },
-                        ];
+                        const isCancelled = project.status === 'CANCELLED';
+                        const items: MenuProps['items'] = isCancelled
+                            ? [{ key: 'reactivate', icon: <RollbackOutlined />, label: 'Reativar' }]
+                            : [
+                                { key: 'edit', icon: <EditOutlined />, label: 'Editar' },
+                                { key: 'delete', icon: <DeleteOutlined />, label: 'Cancelar', danger: true },
+                            ];
 
                         return (
                             <Col key={project.id} xs={24} sm={12} lg={8} xl={6}>
                                 <Card
-                                    hoverable
-                                    style={{ borderColor: 'var(--border)' }}
+                                    hoverable={!isCancelled}
+                                    style={{ borderColor: 'var(--border)', opacity: isCancelled ? 0.6 : 1 }}
                                     styles={{ body: { padding: 20 } }}
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -126,6 +168,7 @@ export default function ProjectsPage() {
                                                     domEvent.stopPropagation();
                                                     if (key === 'edit') openEdit(project);
                                                     if (key === 'delete') showDeleteConfirm(project.id, project.name);
+                                                    if (key === 'reactivate') reactivateMutation.mutate(project.id);
                                                 }
                                             }} trigger={['click']}>
                                                 <Button type="text" size="small" icon={<EllipsisOutlined style={{ fontSize: 18 }} />} />

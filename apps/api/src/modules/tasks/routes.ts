@@ -6,6 +6,7 @@ import prisma from '../../config/database';
 import { config } from '../../config';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
 import { createAuditLog } from '../../middleware/auditLog';
+import { rejectIfCancelled } from '../../utils/projectGuard';
 
 const router = Router();
 
@@ -238,6 +239,7 @@ router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'crea
         if (!project) {
             return res.status(404).json({ success: false, message: 'Projeto não encontrado' });
         }
+        if (await rejectIfCancelled(req.params.projectId, res)) return;
 
         const [code, lastTask] = await Promise.all([
             generateTaskCode(),
@@ -301,6 +303,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Task não encontrada' });
         }
+        if (await rejectIfCancelled(existing.projectId, res)) return;
 
         const hasUpdatePermission = req.userRole === 'Administrador' ||
             (req.userPermissions?.['tasks'] && req.userPermissions['tasks'].includes('update'));
@@ -380,6 +383,7 @@ router.patch('/:id/status', authenticate, async (req: AuthRequest, res) => {
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Task não encontrada' });
         }
+        if (await rejectIfCancelled(existing.projectId, res)) return;
 
         const task = await prisma.task.update({
             where: { id: req.params.id },
@@ -404,6 +408,10 @@ router.patch('/:id/status', authenticate, async (req: AuthRequest, res) => {
 router.patch('/:id/position', authenticate, async (req: AuthRequest, res) => {
     try {
         const { position, status } = req.body;
+
+        const taskForGuard = await prisma.task.findUnique({ where: { id: req.params.id }, select: { projectId: true } });
+        if (!taskForGuard) return res.status(404).json({ success: false, message: 'Task não encontrada' });
+        if (await rejectIfCancelled(taskForGuard.projectId, res)) return;
 
         const task = await prisma.task.update({
             where: { id: req.params.id },
@@ -432,6 +440,7 @@ router.delete('/:id', authenticate, authorize('tasks', 'delete'), async (req: Au
         if (!task) {
             return res.status(404).json({ success: false, message: 'Task não encontrada' });
         }
+        if (await rejectIfCancelled(task.projectId, res)) return;
 
         await prisma.task.delete({ where: { id: req.params.id } });
 
@@ -507,6 +516,10 @@ router.post('/:id/comments', authenticate, async (req: AuthRequest, res) => {
             return res.status(400).json({ success: false, message: 'Conteúdo é obrigatório' });
         }
 
+        const taskForGuard = await prisma.task.findUnique({ where: { id: req.params.id }, select: { projectId: true } });
+        if (!taskForGuard) return res.status(404).json({ success: false, message: 'Task não encontrada' });
+        if (await rejectIfCancelled(taskForGuard.projectId, res)) return;
+
         const comment = await prisma.comment.create({
             data: { taskId: req.params.id, userId: req.userId!, content },
             include: { user: { select: { id: true, name: true, avatarUrl: true } } },
@@ -576,6 +589,10 @@ router.post('/:id/attachments', authenticate, upload.single('file'), async (req:
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Arquivo é obrigatório' });
         }
+
+        const taskForGuard = await prisma.task.findUnique({ where: { id: req.params.id }, select: { projectId: true } });
+        if (!taskForGuard) return res.status(404).json({ success: false, message: 'Task não encontrada' });
+        if (await rejectIfCancelled(taskForGuard.projectId, res)) return;
 
         const attachment = await prisma.attachment.create({
             data: {
@@ -648,6 +665,10 @@ router.post('/:id/time-entries', authenticate, async (req: AuthRequest, res) => 
         if (!durationMin || !date) {
             return res.status(400).json({ success: false, message: 'Duração e data são obrigatórios' });
         }
+
+        const taskForGuard = await prisma.task.findUnique({ where: { id: req.params.id }, select: { projectId: true } });
+        if (!taskForGuard) return res.status(404).json({ success: false, message: 'Task não encontrada' });
+        if (await rejectIfCancelled(taskForGuard.projectId, res)) return;
 
         const entry = await prisma.timeEntry.create({
             data: {

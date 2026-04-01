@@ -84,7 +84,6 @@ async function main() {
     });
 
     const devPerms = {
-        users: ['read'],
         projects: ['read'],
         project_members: ['read'],
         project_info: ['read'],
@@ -107,8 +106,11 @@ async function main() {
 
     console.log('✅ Roles criados:', { adminRole: adminRole.id, gestorRole: gestorRole.id, analistaRole: analistaRole.id, devRole: devRole.id });
 
-    // Create admin user
-    const hashedPassword = await bcrypt.hash('Admin@123', 12);
+    // Senhas lidas de variáveis de ambiente (com fallback para desenvolvimento)
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
+    const gestorPassword = process.env.SEED_GESTOR_PASSWORD || 'Gestor@123';
+    const analistaPassword = process.env.SEED_ANALISTA_PASSWORD || 'Analista@123';
+    const devPassword = process.env.SEED_DEV_PASSWORD || 'Dev@1234';
 
     const adminUser = await prisma.user.upsert({
         where: { email: 'admin@inova.local' },
@@ -116,7 +118,7 @@ async function main() {
         create: {
             name: 'Administrador',
             email: 'admin@inova.local',
-            password: hashedPassword,
+            password: await bcrypt.hash(adminPassword, 12),
             roleId: adminRole.id,
             firstLogin: false,
             status: 'ACTIVE',
@@ -132,7 +134,7 @@ async function main() {
         create: {
             name: 'Carlos Silva',
             email: 'carlos@inova.local',
-            password: await bcrypt.hash('Gestor@123', 12),
+            password: await bcrypt.hash(gestorPassword, 12),
             roleId: gestorRole.id,
             firstLogin: false,
             status: 'ACTIVE',
@@ -145,7 +147,7 @@ async function main() {
         create: {
             name: 'Maria Santos',
             email: 'maria@inova.local',
-            password: await bcrypt.hash('Analista@123', 12),
+            password: await bcrypt.hash(analistaPassword, 12),
             roleId: analistaRole.id,
             firstLogin: false,
             status: 'ACTIVE',
@@ -158,7 +160,7 @@ async function main() {
         create: {
             name: 'Ana Oliveira',
             email: 'ana@inova.local',
-            password: await bcrypt.hash('Dev@1234', 12),
+            password: await bcrypt.hash(devPassword, 12),
             roleId: devRole.id,
             firstLogin: false,
             status: 'ACTIVE',
@@ -171,7 +173,7 @@ async function main() {
         create: {
             name: 'João Pedro',
             email: 'joao@inova.local',
-            password: await bcrypt.hash('Dev@1234', 12),
+            password: await bcrypt.hash(devPassword, 12),
             roleId: devRole.id,
             firstLogin: false,
             status: 'ACTIVE',

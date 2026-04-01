@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../../config/database';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
 import { createAuditLog } from '../../middleware/auditLog';
+import { rejectIfCancelled } from '../../utils/projectGuard';
 
 const router = Router();
 
@@ -33,13 +34,20 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
         const take = parseInt(pageSize as string);
 
         const where: any = {};
+
+        // Por padrão oculta projetos cancelados; passa includeCancelled=true para exibi-los
+        if (status) {
+            where.status = status;
+        } else if (req.query.includeCancelled !== 'true') {
+            where.status = { not: 'CANCELLED' };
+        }
+
         if (search) {
             where.OR = [
                 { name: { contains: search as string, mode: 'insensitive' } },
                 { code: { contains: search as string, mode: 'insensitive' } },
             ];
         }
-        if (status) where.status = status;
         if (memberId) {
             where.members = { some: { userId: memberId as string } };
         }
@@ -157,6 +165,7 @@ router.put('/:id', authenticate, authorize('projects', 'update'), async (req: Au
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Projeto não encontrado' });
         }
+        if (await rejectIfCancelled(req.params.id, res)) return;
 
         const data: any = {};
         if (name) data.name = name;
@@ -236,6 +245,7 @@ router.post('/:id/members', authenticate, authorize('project_members', 'create')
         if (!userId) {
             return res.status(400).json({ success: false, message: 'userId é obrigatório' });
         }
+        if (await rejectIfCancelled(req.params.id, res)) return;
 
         const existing = await prisma.projectMember.findUnique({
             where: { projectId_userId: { projectId: req.params.id, userId } },
@@ -264,6 +274,8 @@ router.post('/:id/members', authenticate, authorize('project_members', 'create')
 // DELETE /api/projects/:id/members/:uid
 router.delete('/:id/members/:uid', authenticate, authorize('project_members', 'delete'), async (req: AuthRequest, res) => {
     try {
+        if (await rejectIfCancelled(req.params.id, res)) return;
+
         const member = await prisma.projectMember.findUnique({
             where: { projectId_userId: { projectId: req.params.id, userId: req.params.uid } },
         });
@@ -317,6 +329,7 @@ router.post('/:id/info', authenticate, authorize('project_info', 'create'), asyn
         if (!validCategories.includes(category)) {
             return res.status(400).json({ success: false, message: 'Categoria inválida' });
         }
+        if (await rejectIfCancelled(req.params.id, res)) return;
 
         const forceSensitive = category === 'CREDENTIAL' ? true : (isSensitive ?? false);
 
@@ -356,6 +369,7 @@ router.put('/:id/info/:infoId', authenticate, authorize('project_info', 'update'
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Informação não encontrada' });
         }
+        if (await rejectIfCancelled(req.params.id, res)) return;
 
         const { category, label, value, username, isSensitive, notes, order } = req.body;
         const data: any = {};
@@ -394,6 +408,7 @@ router.delete('/:id/info/:infoId', authenticate, authorize('project_info', 'dele
         if (!existing) {
             return res.status(404).json({ success: false, message: 'Informação não encontrada' });
         }
+        if (await rejectIfCancelled(req.params.id, res)) return;
 
         await prisma.projectInfo.delete({ where: { id: req.params.infoId } });
 
@@ -406,7 +421,7 @@ router.delete('/:id/info/:infoId', authenticate, authorize('project_info', 'dele
     }
 });
 
-// DELETE /api/projects/:id
+// DELETE /api/projects/:id — soft delete (marca como CANCELLED)
 router.delete('/:id', authenticate, authorize('projects', 'delete'), async (req: AuthRequest, res) => {
     try {
         const project = await prisma.project.findUnique({ where: { id: req.params.id } });
@@ -414,24 +429,20 @@ router.delete('/:id', authenticate, authorize('projects', 'delete'), async (req:
             return res.status(404).json({ success: false, message: 'Projeto não encontrado' });
         }
 
-        // Delete related records and then the project
-        await prisma.$transaction([
-            prisma.timeEntry.deleteMany({ where: { task: { projectId: project.id } } }),
-            prisma.comment.deleteMany({ where: { task: { projectId: project.id } } }),
-            prisma.attachment.deleteMany({ where: { task: { projectId: project.id } } }),
-            prisma.taskAssignee.deleteMany({ where: { task: { projectId: project.id } } }),
-            prisma.task.deleteMany({ where: { projectId: project.id } }),
-            prisma.sprint.deleteMany({ where: { projectId: project.id } }),
-            prisma.projectMember.deleteMany({ where: { projectId: project.id } }),
-            prisma.projectInfo.deleteMany({ where: { projectId: project.id } }),
-            prisma.project.delete({ where: { id: project.id } })
-        ]);
+        if (project.status === 'CANCELLED') {
+            return res.status(422).json({ success: false, message: 'Projeto já está cancelado.' });
+        }
 
-        await createAuditLog(req, 'DELETE', 'projects', project.id, project, null);
+        await prisma.project.update({
+            where: { id: project.id },
+            data: { status: 'CANCELLED' },
+        });
 
-        res.json({ success: true, message: 'Projeto excluído com sucesso' });
+        await createAuditLog(req, 'CANCEL', 'projects', project.id, { status: project.status }, { status: 'CANCELLED' });
+
+        res.json({ success: true, message: 'Projeto cancelado com sucesso.' });
     } catch (error) {
-        console.error('Delete project error:', error);
+        console.error('Cancel project error:', error);
         res.status(500).json({ success: false, message: 'Erro interno do servidor' });
     }
 });

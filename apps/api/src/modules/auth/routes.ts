@@ -137,6 +137,7 @@ router.post('/login', async (req, res) => {
                     role: {
                         id: user.role.id,
                         name: user.role.name,
+                        isSystem: user.role.isSystem,
                         permissions: user.role.permissions,
                     },
                 },
