@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileTypeFromBuffer } from 'file-type';
 import prisma from '../../config/database';
 import { config } from '../../config';
 import { authenticate, authorize, AuthRequest } from '../../middleware/auth';
@@ -23,9 +24,32 @@ const storage = multer.diskStorage({
     },
 });
 
+// SEC-05: tipos MIME permitidos (validados via magic bytes no handler de upload)
+const ALLOWED_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'text/plain',
+    'application/zip',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  // .docx
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',        // .xlsx
+];
+
 const upload = multer({
     storage,
     limits: { fileSize: config.upload.maxFileSize },
+    fileFilter: (_req, file, cb) => {
+        // Primeiro layer: extensão (rápido, rejeita óbvios antes de gravar em disco)
+        const ext = path.extname(file.originalname).toLowerCase();
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.txt', '.zip', '.docx', '.xlsx'];
+        if (!allowedExtensions.includes(ext)) {
+            return cb(new Error('Tipo de arquivo não permitido'));
+        }
+        // Segundo layer (magic bytes) é feito no handler após salvar em disco
+        cb(null, true);
+    },
 });
 
 // Inclui as sprints de uma task no formato legível
@@ -590,9 +614,26 @@ router.post('/:id/attachments', authenticate, upload.single('file'), async (req:
             return res.status(400).json({ success: false, message: 'Arquivo é obrigatório' });
         }
 
+        // SEC-05: Validar MIME type real via magic bytes (não confiar no header do cliente)
+        const fileBuffer = fs.readFileSync(req.file.path);
+        const detectedType = await fileTypeFromBuffer(fileBuffer);
+        if (!detectedType || !ALLOWED_MIME_TYPES.includes(detectedType.mime)) {
+            fs.unlinkSync(req.file.path); // remover arquivo inválido do disco
+            return res.status(400).json({
+                success: false,
+                message: `Tipo de arquivo não permitido: ${detectedType?.mime ?? 'desconhecido'}`,
+            });
+        }
+
         const taskForGuard = await prisma.task.findUnique({ where: { id: req.params.id }, select: { projectId: true } });
-        if (!taskForGuard) return res.status(404).json({ success: false, message: 'Task não encontrada' });
-        if (await rejectIfCancelled(taskForGuard.projectId, res)) return;
+        if (!taskForGuard) {
+            fs.unlinkSync(req.file.path);
+            return res.status(404).json({ success: false, message: 'Task não encontrada' });
+        }
+        if (await rejectIfCancelled(taskForGuard.projectId, res)) {
+            fs.unlinkSync(req.file.path);
+            return;
+        }
 
         const attachment = await prisma.attachment.create({
             data: {
