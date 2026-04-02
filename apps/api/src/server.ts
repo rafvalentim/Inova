@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
@@ -73,6 +74,10 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // Middleware
+app.use(helmet({
+    contentSecurityPolicy: false,         // API não serve HTML
+    crossOriginEmbedderPolicy: false,     // compatibilidade Socket.IO
+}));
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
