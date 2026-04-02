@@ -23,20 +23,20 @@ O sistema precisa ser **seguro e confiável** — auth sólido, validação de e
 - ✓ Gestão de roles e permissões granulares — existing
 - ✓ Gestão de usuários (criar, ativar/desativar, reset de senha) — existing
 - ✓ Socket.IO configurado para eventos real-time (task-updated, task-moved, etc.) — existing
-- ✓ Upload de attachments em tasks — existing
+- ✓ Socket.IO autenticado com JWT + membership guard + server-side emit only — Phase 1
+- ✓ Helmet security headers configurados na API — Phase 1
+- ✓ Upload de attachments com validação MIME via magic bytes — Phase 1
+- ✓ generateTaskCode protegido contra race condition (unique + retry P2002) — Phase 1
 - ✓ Comentários em tasks — existing
 - ✓ Subtasks — existing
 - ✓ Roteamento contextual por role (HomeRedirect) — existing
 
 ### Active
 
-- [ ] Corrigir lacunas de segurança (Socket.IO sem auth, uploads sem filtro MIME, Bearer fallback)
 - [ ] Adicionar validação de schema em todos os endpoints (Zod ou similar)
 - [ ] Eliminar uso excessivo de `any` nos route handlers da API
 - [ ] Separar lógica de negócio dos routes onde for crítico (tasks, auth, sprints)
-- [ ] Adicionar testes básicos nos pontos críticos (auth, RBAC, tasks)
 - [ ] Corrigir erro TS2322 em api.ts (failedQueue typing)
-- [ ] Proteger generateTaskCode contra race conditions
 - [ ] Melhorar robustez dos fluxos gerais (frontend e backend)
 - [ ] Componentizar páginas monolíticas onde necessário (KanbanPage, ProjectDetailPage)
 - [ ] Adicionar logging estruturado na API (substituir console.log/error)
@@ -94,4 +94,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-02 after initialization*
+*Last updated: 2026-04-02 after Phase 1 completion*

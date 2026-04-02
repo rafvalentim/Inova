@@ -10,7 +10,7 @@ Este milestone transforma o Inova de um app funcional em um sistema seguro e con
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Security Hardening** - Fecha as lacunas de segurança críticas: Socket.IO auth, Helmet, MIME filter e race condition do generateTaskCode
+- [x] **Phase 1: Security Hardening** - Fecha as lacunas de segurança críticas: Socket.IO auth, Helmet, MIME filter e race condition do generateTaskCode (completed 2026-04-02)
 - [ ] **Phase 2: Input Validation + Observability** - Adiciona validação Zod em todos os endpoints e substitui console.log/error por Pino estruturado
 - [ ] **Phase 3: Backend Service Layer** - Extrai lógica de negócio dos routes de tasks, auth e sprints para services testáveis; redesenha projectGuard
 - [ ] **Phase 4: Frontend Decomposition + Quality** - Decompõe páginas monolíticas em hooks/subcomponentes, centraliza query keys e elimina erros de TypeScript
@@ -30,7 +30,7 @@ Este milestone transforma o Inova de um app funcional em um sistema seguro e con
 **Plans**: 2 plans
 Plans:
 - [x] 01-01-PLAN.md — Socket.IO JWT auth + membership guard + relay removal + Helmet (SEC-01, SEC-02, SEC-03, SEC-04)
-- [ ] 01-02-PLAN.md — MIME validation via file-type, generateTaskCode race fix, Socket.IO emit no HTTP (SEC-03, SEC-05, SEC-06)
+- [x] 01-02-PLAN.md — MIME validation via file-type, generateTaskCode race fix, Socket.IO emit no HTTP (SEC-03, SEC-05, SEC-06)
 
 ### Phase 2: Input Validation + Observability
 **Goal**: Todos os endpoints validam inputs com schemas Zod e a API emite logs estruturados em vez de console.log
@@ -72,7 +72,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Security Hardening | 1/2 | In Progress|  |
+| 1. Security Hardening | 2/2 | Complete   | 2026-04-02 |
 | 2. Input Validation + Observability | 0/TBD | Not started | - |
 | 3. Backend Service Layer | 0/TBD | Not started | - |
 | 4. Frontend Decomposition + Quality | 0/TBD | Not started | - |

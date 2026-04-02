@@ -101,3 +101,12 @@ None - no external service configuration required.
 ---
 *Phase: 01-security-hardening*
 *Completed: 2026-04-02*
+
+## Self-Check: PASSED
+
+- FOUND: `apps/api/src/server.ts`
+- FOUND: `apps/api/package.json`
+- FOUND: `.planning/phases/01-security-hardening/01-01-SUMMARY.md`
+- FOUND commit `4a911dd`: feat(01-01): instalar Helmet e configurar como primeiro middleware de segurança
+- FOUND commit `4b984ce`: feat(01-01): Socket.IO auth middleware, membership guard e remoção dos relay handlers
+- Structural: `io.use(` count = 1, `helmet` count = 2, `projectMember.findFirst` count = 1, relay handlers count = 0

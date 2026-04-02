@@ -44,3 +44,4 @@ prisma/migrations/dev/
 
 # Uploads
 uploads/
+.planning/

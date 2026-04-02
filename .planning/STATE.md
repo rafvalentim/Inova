@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-security-hardening 01-01-PLAN.md
-last_updated: "2026-04-02T13:12:01.133Z"
+status: verifying
+stopped_at: Completed 01-security-hardening 01-02-PLAN.md
+last_updated: "2026-04-02T13:21:56.687Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 
 ## Current Position
 
-Phase: 01 (Security Hardening) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
+Phase: 2
+Plan: Not started
+Status: Phase complete — ready for verification
 Last activity: 2026-04-02
 
 Progress: [░░░░░░░░░░] 0%
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-security-hardening P01 | 3 | 2 tasks | 3 files |
+| Phase 01-security-hardening P02 | 4 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - [Phase 01-security-hardening]: Helmet com contentSecurityPolicy:false e crossOriginEmbedderPolicy:false para compatibilidade API-only + Socket.IO
 - [Phase 01-security-hardening]: Token Socket.IO: cookie accessToken (preferido) com fallback para handshake.auth.token
 - [Phase 01-security-hardening]: Relay handlers deletados (não comentados) — emissão de eventos agora é 100% server-side via route handlers
+- [Phase 01-security-hardening]: file-type v18 (não v19+): v19+ é ESM-only e quebraria o CommonJS da API
+- [Phase 01-security-hardening]: createTaskWithCode usa Omit<code> para type safety sem duplicar tipos do Prisma
+- [Phase 01-security-hardening]: PATCH /:id/position também emite task-moved — handler primário do DnD Kanban
 
 ### Pending Todos
 
@@ -81,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-02T13:12:01.128Z
-Stopped at: Completed 01-security-hardening 01-01-PLAN.md
+Last session: 2026-04-02T13:18:23.449Z
+Stopped at: Completed 01-security-hardening 01-02-PLAN.md
 Resume file: None

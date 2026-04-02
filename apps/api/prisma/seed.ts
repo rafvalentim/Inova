@@ -106,11 +106,29 @@ async function main() {
 
     console.log('✅ Roles criados:', { adminRole: adminRole.id, gestorRole: gestorRole.id, analistaRole: analistaRole.id, devRole: devRole.id });
 
-    // Senhas lidas de variáveis de ambiente (com fallback para desenvolvimento)
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
-    const gestorPassword = process.env.SEED_GESTOR_PASSWORD || 'Gestor@123';
-    const analistaPassword = process.env.SEED_ANALISTA_PASSWORD || 'Analista@123';
-    const devPassword = process.env.SEED_DEV_PASSWORD || 'Dev@1234';
+    // Senhas lidas de variáveis de ambiente obrigatórias em produção
+    const isProduction = process.env.NODE_ENV === 'production';
+    const requiredVars = ['SEED_ADMIN_PASSWORD', 'SEED_GESTOR_PASSWORD', 'SEED_ANALISTA_PASSWORD', 'SEED_DEV_PASSWORD'];
+    const missing = requiredVars.filter((v) => !process.env[v]);
+
+    if (isProduction && missing.length > 0) {
+        throw new Error(
+            `[seed] Variáveis de ambiente obrigatórias não definidas em produção: ${missing.join(', ')}. ` +
+            'Defina-as antes de executar o seed.'
+        );
+    }
+
+    if (!isProduction && missing.length > 0) {
+        console.warn(
+            `[seed] AVISO: ${missing.join(', ')} não definidas. ` +
+            'Usando senhas padrão de desenvolvimento — NUNCA faça isso em produção.'
+        );
+    }
+
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123';
+    const gestorPassword = process.env.SEED_GESTOR_PASSWORD ?? 'Gestor@123';
+    const analistaPassword = process.env.SEED_ANALISTA_PASSWORD ?? 'Analista@123';
+    const devPassword = process.env.SEED_DEV_PASSWORD ?? 'Dev@1234';
 
     const adminUser = await prisma.user.upsert({
         where: { email: 'admin@inova.local' },
