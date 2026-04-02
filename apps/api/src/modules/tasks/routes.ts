@@ -250,6 +250,24 @@ async function generateTaskCode(): Promise<string> {
     }
 }
 
+// Cria task com código único — retenta até 3 vezes em caso de race condition (SEC-06, P2002)
+async function createTaskWithCode(data: Parameters<typeof prisma.task.create>[0]['data']): Promise<Awaited<ReturnType<typeof prisma.task.create>>> {
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const code = await generateTaskCode();
+        try {
+            return await prisma.task.create({ data: { ...data, code } });
+        } catch (e: any) {
+            if (e?.code === 'P2002' && attempt < MAX_RETRIES) {
+                // Race condition: outro request criou task com o mesmo código — retenta
+                continue;
+            }
+            throw e;
+        }
+    }
+    throw new Error('Não foi possível gerar código único para a task após 3 tentativas');
+}
+
 // POST /api/projects/:projectId/tasks
 router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'create'), async (req: AuthRequest, res) => {
     try {
@@ -265,38 +283,38 @@ router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'crea
         }
         if (await rejectIfCancelled(req.params.projectId, res)) return;
 
-        const [code, lastTask] = await Promise.all([
-            generateTaskCode(),
-            prisma.task.findFirst({
-                where: { projectId: req.params.projectId, status: 'BACKLOG' },
-                orderBy: { position: 'desc' },
-                select: { position: true },
-            }),
-        ]);
+        const lastTask = await prisma.task.findFirst({
+            where: { projectId: req.params.projectId, status: 'BACKLOG' },
+            orderBy: { position: 'desc' },
+            select: { position: true },
+        });
         const position = (lastTask?.position ?? -1) + 1;
 
-        const task = await prisma.task.create({
-            data: {
-                code,
-                projectId: req.params.projectId,
-                title,
-                description: description || null,
-                priority: priority || 'MEDIUM',
-                parentId: parentId || null,
-                dueDate: dueDate ? new Date(dueDate) : null,
-                storyPoints: storyPoints != null && storyPoints !== '' ? parseInt(storyPoints as string, 10) : null,
-                estimatedHours: estimatedHours != null && estimatedHours !== '' ? parseFloat(estimatedHours as string) : null,
-                tags: tags || [],
-                position,
-                createdById: req.userId!,
-                assignees: assigneeIds
-                    ? { create: assigneeIds.map((userId: string) => ({ userId })) }
-                    : undefined,
-                // Associa à sprint via junction table
-                sprints: sprintId
-                    ? { create: [{ sprintId }] }
-                    : undefined,
-            },
+        // SEC-06: createTaskWithCode faz retry em P2002 (unique constraint em code) para evitar race condition
+        const createdTask = await createTaskWithCode({
+            projectId: req.params.projectId,
+            title,
+            description: description || null,
+            priority: priority || 'MEDIUM',
+            parentId: parentId || null,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            storyPoints: storyPoints != null && storyPoints !== '' ? parseInt(storyPoints as string, 10) : null,
+            estimatedHours: estimatedHours != null && estimatedHours !== '' ? parseFloat(estimatedHours as string) : null,
+            tags: tags || [],
+            position,
+            createdById: req.userId!,
+            assignees: assigneeIds
+                ? { create: assigneeIds.map((userId: string) => ({ userId })) }
+                : undefined,
+            // Associa à sprint via junction table
+            sprints: sprintId
+                ? { create: [{ sprintId }] }
+                : undefined,
+        });
+
+        // Buscar task com includes após criação (createTaskWithCode retorna sem includes)
+        const task = await prisma.task.findUnique({
+            where: { id: createdTask.id },
             include: {
                 ...sprintInclude,
                 assignees: {
@@ -306,9 +324,9 @@ router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'crea
             },
         });
 
-        await createAuditLog(req, 'CREATE', 'tasks', task.id, null, { code, title, projectId: req.params.projectId });
+        await createAuditLog(req, 'CREATE', 'tasks', createdTask.id, null, { code: createdTask.code, title, projectId: req.params.projectId });
 
-        res.status(201).json({ success: true, data: task });
+        res.status(201).json({ success: true, data: task ?? createdTask });
     } catch (error) {
         console.error('Create task error:', error);
         res.status(500).json({ success: false, message: 'Erro interno do servidor' });
