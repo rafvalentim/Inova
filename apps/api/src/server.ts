@@ -6,7 +6,9 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import { config } from './config';
+import prisma from './config/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Route imports
@@ -32,37 +34,50 @@ const io = new SocketIOServer(httpServer, {
     },
 });
 
+// Middleware de autenticação Socket.IO (SEC-01)
+io.use(async (socket, next) => {
+    try {
+        // Token pode vir de cookie (preferido) ou query param (fallback para clientes que não suportam cookies com Socket.IO)
+        const cookieHeader = socket.handshake.headers.cookie || '';
+        const cookieMatch = cookieHeader.match(/accessToken=([^;]+)/);
+        const tokenFromCookie = cookieMatch ? cookieMatch[1] : null;
+        const tokenFromQuery = socket.handshake.auth?.token as string | undefined;
+        const token = tokenFromCookie || tokenFromQuery;
+
+        if (!token) {
+            return next(new Error('Autenticação necessária: token não fornecido'));
+        }
+
+        const decoded = jwt.verify(token, config.jwt.secret) as { userId: string; role: string };
+        socket.data.userId = decoded.userId;
+        next();
+    } catch {
+        next(new Error('Token inválido ou expirado'));
+    }
+});
+
 // Socket.IO events
 io.on('connection', (socket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}`);
 
-    socket.on('join-project', (projectId: string) => {
-        socket.join(`project:${projectId}`);
-        console.log(`[Socket.IO] ${socket.id} joined project:${projectId}`);
+    socket.on('join-project', async (projectId: string) => {
+        try {
+            const membership = await prisma.projectMember.findFirst({
+                where: { projectId, userId: socket.data.userId },
+            });
+            if (!membership) {
+                socket.emit('error', { message: 'Sem acesso a este projeto' });
+                return;
+            }
+            await socket.join(`project:${projectId}`);
+            console.log(`[Socket.IO] ${socket.data.userId} joined project:${projectId}`);
+        } catch {
+            socket.emit('error', { message: 'Erro ao entrar na sala do projeto' });
+        }
     });
 
     socket.on('leave-project', (projectId: string) => {
         socket.leave(`project:${projectId}`);
-    });
-
-    socket.on('task-updated', (data: { projectId: string; task: any }) => {
-        socket.to(`project:${data.projectId}`).emit('task-updated', data.task);
-    });
-
-    socket.on('task-moved', (data: { projectId: string; taskId: string; status: string; position: number }) => {
-        socket.to(`project:${data.projectId}`).emit('task-moved', data);
-    });
-
-    socket.on('task-created', (data: { projectId: string; task: any }) => {
-        socket.to(`project:${data.projectId}`).emit('task-created', data.task);
-    });
-
-    socket.on('task-deleted', (data: { projectId: string; taskId: string }) => {
-        socket.to(`project:${data.projectId}`).emit('task-deleted', data.taskId);
-    });
-
-    socket.on('comment-added', (data: { projectId: string; taskId: string; comment: any }) => {
-        socket.to(`project:${data.projectId}`).emit('comment-added', data);
     });
 
     socket.on('disconnect', () => {
