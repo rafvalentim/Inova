@@ -251,12 +251,12 @@ async function generateTaskCode(): Promise<string> {
 }
 
 // Cria task com código único — retenta até 3 vezes em caso de race condition (SEC-06, P2002)
-async function createTaskWithCode(data: Parameters<typeof prisma.task.create>[0]['data']): Promise<Awaited<ReturnType<typeof prisma.task.create>>> {
+async function createTaskWithCode(data: Omit<Parameters<typeof prisma.task.create>[0]['data'], 'code'>): Promise<Awaited<ReturnType<typeof prisma.task.create>>> {
     const MAX_RETRIES = 3;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         const code = await generateTaskCode();
         try {
-            return await prisma.task.create({ data: { ...data, code } });
+            return await prisma.task.create({ data: { ...data, code } as Parameters<typeof prisma.task.create>[0]['data'] });
         } catch (e: any) {
             if (e?.code === 'P2002' && attempt < MAX_RETRIES) {
                 // Race condition: outro request criou task com o mesmo código — retenta
@@ -325,6 +325,10 @@ router.post('/projects/:projectId/tasks', authenticate, authorize('tasks', 'crea
         });
 
         await createAuditLog(req, 'CREATE', 'tasks', createdTask.id, null, { code: createdTask.code, title, projectId: req.params.projectId });
+
+        // SEC-03: Emitir evento para clientes conectados ao projeto
+        const io = req.app.get('io');
+        if (io) io.to(`project:${req.params.projectId}`).emit('task-created', task ?? createdTask);
 
         res.status(201).json({ success: true, data: task ?? createdTask });
     } catch (error) {
@@ -405,6 +409,10 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 
         await createAuditLog(req, 'UPDATE', 'tasks', task.id, existing, data);
 
+        // SEC-03: Emitir evento para clientes conectados ao projeto
+        const io = req.app.get('io');
+        if (io) io.to(`project:${task.projectId}`).emit('task-updated', task);
+
         res.json({ success: true, data: task });
     } catch (error) {
         console.error('Update task error:', error);
@@ -439,6 +447,14 @@ router.patch('/:id/status', authenticate, async (req: AuthRequest, res) => {
             await syncProjectStatus(existing.projectId);
         }
 
+        // SEC-03: Emitir evento para clientes conectados ao projeto
+        const io = req.app.get('io');
+        if (io) io.to(`project:${task.projectId}`).emit('task-moved', {
+            taskId: task.id,
+            status: task.status,
+            position: task.position,
+        });
+
         res.json({ success: true, data: task });
     } catch (error) {
         console.error('Update task status error:', error);
@@ -468,6 +484,14 @@ router.patch('/:id/position', authenticate, async (req: AuthRequest, res) => {
             await syncProjectStatus(task.projectId);
         }
 
+        // SEC-03: Emitir evento para clientes conectados ao projeto (DnD move)
+        const io = req.app.get('io');
+        if (io) io.to(`project:${task.projectId}`).emit('task-moved', {
+            taskId: task.id,
+            status: task.status,
+            position: task.position,
+        });
+
         res.json({ success: true, data: task });
     } catch (error) {
         console.error('Update task position error:', error);
@@ -487,6 +511,10 @@ router.delete('/:id', authenticate, authorize('tasks', 'delete'), async (req: Au
         await prisma.task.delete({ where: { id: req.params.id } });
 
         await createAuditLog(req, 'DELETE', 'tasks', task.id, task, null);
+
+        // SEC-03: Emitir evento para clientes conectados ao projeto
+        const io = req.app.get('io');
+        if (io) io.to(`project:${task.projectId}`).emit('task-deleted', task.id);
 
         res.json({ success: true, message: 'Task excluída com sucesso' });
     } catch (error) {
