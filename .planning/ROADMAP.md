@@ -29,7 +29,7 @@ Este milestone transforma o Inova de um app funcional em um sistema seguro e con
   5. Upload de arquivo com MIME type inválido (ex: .exe renomeado para .jpg) é rejeitado com 400 antes de ser salvo
 **Plans**: 2 plans
 Plans:
-- [ ] 01-01-PLAN.md — Socket.IO JWT auth + membership guard + relay removal + Helmet (SEC-01, SEC-02, SEC-03, SEC-04)
+- [x] 01-01-PLAN.md — Socket.IO JWT auth + membership guard + relay removal + Helmet (SEC-01, SEC-02, SEC-03, SEC-04)
 - [ ] 01-02-PLAN.md — MIME validation via file-type, generateTaskCode race fix, Socket.IO emit no HTTP (SEC-03, SEC-05, SEC-06)
 
 ### Phase 2: Input Validation + Observability
@@ -72,7 +72,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Security Hardening | 0/2 | Not started | - |
+| 1. Security Hardening | 1/2 | In Progress|  |
 | 2. Input Validation + Observability | 0/TBD | Not started | - |
 | 3. Backend Service Layer | 0/TBD | Not started | - |
 | 4. Frontend Decomposition + Quality | 0/TBD | Not started | - |
